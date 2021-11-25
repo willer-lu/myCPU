@@ -1,15 +1,13 @@
 `include "lib/defines.vh"
 module ID(
-    input wire clk,
-    // ʱ���ź�,
-    input wire rst,
-    // ��λ�ź�
+    input wire clk,  // 时钟信号,
+    input wire rst,  // 复位信号
     // input wire flush,
     input wire [`StallBus-1:0] stall,
     //stallBus = 6
-    output wire stallreq,
+    output wire stallreq,  //暂停请求
 
-    input wire [`IF_TO_ID_WD-1:0] if_to_id_bus,
+    input wire [`IF_TO_ID_WD-1:0] if_to_id_bus, //使能信号与指令地址
     // `define IF_TO_ID_WD 33
     // `define ID_TO_EX_WD 159
     // `define EX_TO_MEM_WD 76
@@ -17,46 +15,38 @@ module ID(
     // `define BR_WD 33
     // `define DATA_SRAM_WD 69
     // `define WB_TO_RF_WD 38
-
     // `define StallBus 6
     // `define NoStop 1'b0
     // `define Stop 1'b1
-    input wire [31:0] inst_sram_rdata,
+    input wire [31:0] inst_sram_rdata, //指令内容
 
-    input wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus,
+    input wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus, //WB段输入的内容
     
-    //����ִ�н׶�ָ��Ҫд��ļĴ�����Ϣ
+    //处于执行阶段指令要写入的寄存器信息
     input wire ex_rf_we, 
-    
     input wire [4:0] ex_rf_waddr,
-    
     input wire [31:0] ex_ex_result,
     
-    //���ڷô�׶�ָ��Ҫд��ļĴ�����Ϣ
+    //处于访存阶段指令要写入的寄存器信息
     input wire mem_rf_we, 
-    
     input wire [4:0] mem_rf_waddr,
-    
     input wire [31:0] mem_rf_wdata,
     
-    output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
+    
+    output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,//即ID到EX段的内容
 
-    output wire [`BR_WD-1:0] br_bus 
-    
-    
+    output wire [`BR_WD-1:0] br_bus    
     
 );
 
     reg [`IF_TO_ID_WD-1:0] if_to_id_bus_r;
-    wire [31:0] inst;
-    //����׶ε�ָ��
-    wire [31:0] id_pc;
-    //����׶εĵ�ַ
-    wire ce;
-    //ʹ����
+    wire [31:0] inst;  //译码阶段的指令
+    wire [31:0] id_pc;   //译码阶段的地址
+    wire ce;  //使能线
+  
+  //WB段输入的相关内容
     wire wb_rf_we;
     wire [4:0] wb_rf_waddr;
-    //
     wire [31:0] wb_rf_wdata;
     //
     ////          regfile
@@ -69,6 +59,7 @@ module ID(
     ////    .waddr  (wb_rf_waddr  ),
     ////    .wdata  (wb_rf_wdata  )
     ////
+    //对指令进行译码操作
     always @ (posedge clk) begin
         if (rst) begin
             if_to_id_bus_r <= `IF_TO_ID_WD'b0;        
@@ -83,46 +74,46 @@ module ID(
             if_to_id_bus_r <= if_to_id_bus;
         end
     end
-    
+    //输入指令
     assign inst = inst_sram_rdata;
-    assign {
+    assign {   //使能信号 指令地址
         ce,
         id_pc
     } = if_to_id_bus_r;
-    assign {
+    assign {   //WB段输入的内容
         wb_rf_we,
         wb_rf_waddr,
         wb_rf_wdata
     } = wb_to_rf_bus;
 
-    wire [5:0] opcode;
-    wire [4:0] rs,rt,rd,sa;
-    wire [5:0] func;
-    wire [15:0] imm;
-    wire [25:0] instr_index;
-    wire [19:0] code;
-    wire [4:0] base;
-    wire [15:0] offset;
-    wire [2:0] sel;
+    wire [5:0] opcode;  //操作码
+    wire [4:0] rs,rt,rd,sa; //源寄存器与目的寄存器(R-R)，移位量
+    wire [5:0] func;    //具体的运算操作编码
+    wire [15:0] imm;    //立即数(I类指令)
+    wire [25:0] instr_index; //与PC相加的偏移量(J类指令)
+    wire [19:0] code;  //异常处理指令中的code段  系统调用指令syscall
+    wire [4:0] base;   //基址(寄存器储存的地址)
+    wire [15:0] offset;  //偏移量
+    wire [2:0] sel;    
 
-    wire [63:0] op_d, func_d;
-    wire [31:0] rs_d, rt_d, rd_d, sa_d;
+    wire [63:0] op_d, func_d;  //操作的具体内容
+    wire [31:0] rs_d, rt_d, rd_d, sa_d; //寄存器或移位量具体值
 
     wire [2:0] sel_alu_src1;
-    wire [3:0] sel_alu_src2;
-    wire [11:0] alu_op;
+    wire [3:0] sel_alu_src2; //控制reg1 reg2内容
+    wire [11:0] alu_op;  //不同子类型操作
 
     wire data_ram_en;
     wire [3:0] data_ram_wen;
     
-    wire rf_we;
-    wire [4:0] rf_waddr;
+    wire rf_we;  //判断指令是否有要写入的目的寄存器
+    wire [4:0] rf_waddr;  //指令要写入的目的寄存器的地址
     wire sel_rf_res;
     wire [2:0] sel_rf_dst;
 
-    wire [31:0] rdata1, rdata2, uprdata1, uprdata2;
+    wire [31:0] rdata1, rdata2, uprdata1, uprdata2; //从regfile输入的数据 与更新后的值
 
-    ///�������regfile
+    ///如何例化regfile
     regfile u_regfile(
     	.clk    (clk    ),
         .raddr1 (rs ),
@@ -136,7 +127,7 @@ module ID(
         .wdata  (wb_rf_wdata  )
     );
 
-    assign opcode = inst[31:26];
+    assign opcode = inst[31:26];   //根据不同的指令进行切片
     assign rs = inst[25:21];
     assign rt = inst[20:16];
     assign rd = inst[15:11];
@@ -149,17 +140,23 @@ module ID(
     assign offset = inst[15:0];
     assign sel = inst[2:0];
 
-    wire inst_ori, inst_lui, inst_addiu, inst_beq;
+    wire inst_ori, inst_lui, inst_addiu, inst_beq, inst_subu;//已有的指令类型
+    //ori立即数位或 ori rt rs im
+    //lui寄存器高半部分置立即数  lui rt im
+    //addiu加立即数 addiu rt rs im
+    //beq相等转移 beq rs rt offset
+    //subu 将 rs与 rt相减，结果写入 rd  subu rs rt rd sham func
 
-    wire op_add, op_sub, op_slt, op_sltu;
-    wire op_and, op_nor, op_or, op_xor;
-    wire op_sll, op_srl, op_sra, op_lui;
+    wire op_add, op_sub, op_slt, op_sltu; //加、减、有符号小于置1、无符号小于设置1
+    wire op_and, op_nor, op_or, op_xor;//位与、位或非、位或、位异或
+    wire op_sll, op_srl, op_sra, op_lui;//立即数逻辑左移、立即数逻辑右移、立即数算术右移、寄存器高半部分置立即数
 
+//6位译码器与5位译码器  分别用来确定操作码和寄存器
     decoder_6_64 u0_decoder_6_64(
     	.in  (opcode  ),
         .out (op_d )
     );
-    //�������һ����
+    //独热码变一进制
     decoder_6_64 u1_decoder_6_64(
     	.in  (func  ),
         .out (func_d )
@@ -180,35 +177,29 @@ module ID(
     assign inst_lui     = op_d[6'b00_1111];
     assign inst_addiu   = op_d[6'b00_1001];
     assign inst_beq     = op_d[6'b00_0100];
-    //  �����ź�
+    assign inst_subu    = func_d[6'b10_0011];
+    //  激活信号
 
 
     // rs to reg1
-    assign sel_alu_src1[0] = inst_ori | inst_addiu;
-
+    assign sel_alu_src1[0] = inst_ori | inst_addiu |inst_subu;
     // pc to reg1
     assign sel_alu_src1[1] = 1'b0;
-
-    // sa_zero_extend to reg1 ƫ����
+    // sa_zero_extend to reg1 偏移量
     assign sel_alu_src1[2] = 1'b0;
-
     
     // rt to reg2
-    assign sel_alu_src2[0] = 1'b0;
-    
+    assign sel_alu_src2[0] = inst_subu;
     // imm_sign_extend to reg2
     assign sel_alu_src2[1] = inst_lui | inst_addiu;
-
     // 32'b8 to reg2
     assign sel_alu_src2[2] = 1'b0;
-
     // imm_zero_extend to reg2
     assign sel_alu_src2[3] = inst_ori;
-
-    //���rt
+    //替代rt
 
     assign op_add = inst_addiu;
-    assign op_sub = 1'b0;
+    assign op_sub = inst_subu;
     assign op_slt = 1'b0;
     assign op_sltu = 1'b0;
     assign op_and = 1'b0;
@@ -235,12 +226,12 @@ module ID(
 
 
     // regfile sotre enable
-    assign rf_we = inst_ori | inst_lui | inst_addiu;
-    //���Ӻ���ת
+    assign rf_we = inst_ori | inst_lui | inst_addiu | inst_subu;
+    //链接和跳转
 
 
     // store in [rd]
-    assign sel_rf_dst[0] = 1'b0;
+    assign sel_rf_dst[0] = inst_subu;
     // store in [rt] 
     assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu;
     // store in [31]
@@ -252,12 +243,12 @@ module ID(
                     | {5{sel_rf_dst[2]}} & 32'd31;
 
     // 0 from alu_res ; 1 from ld_res
-    assign sel_rf_res = 1'b0; 
+    assign sel_rf_res = 1'b0; //result  mem阶段使用
        
     assign uprdata1 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rs))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rs))  ?  mem_rf_wdata : rdata1   );
 	assign uprdata2 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rt))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rt))  ?  mem_rf_wdata : rdata2   );
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////����һ��֮ǰ�ı�rdata
+    //////////////////////////////////////////////////////////////在这一步之前改变rdata
     assign id_to_ex_bus = {
         id_pc,          // 158:127
         inst,           // 126:95
