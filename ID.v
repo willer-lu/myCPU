@@ -143,7 +143,9 @@ module ID(
     assign sel = inst[2:0];
 
     wire inst_ori, inst_lui, inst_addiu, inst_beq, inst_subu;//已有的指令类型
-    wire inst_jal, inst_jr, inst_addu, inst_bne;
+    wire inst_jal, inst_jr, inst_addu, inst_bne, inst_or ;
+    wire inst_sll;
+    wire inst_lw;
     //ori立即数位或 ori rt rs im
     //lui寄存器高半部分置立即数  lui rt im
     //addiu加立即数 addiu rt rs im
@@ -153,7 +155,8 @@ module ID(
     //jr 无条件跳转。跳转目标为寄存器 rs 中的值 jr rs 10 5 func
     //addu 将 rs 与 rt 相加，结果写入 rd  addu rs rt rd sham func
     // rs 不等于 rt 则转移 bne rs rt offset
-
+    //由立即数 sa 指定移位量，对rt的值进行左移  写入rd中  SLL rd, rt, sa
+    //rs中的值与rt中的值按位逻辑或，结果写入rd中     OR rd, rs, rt
     wire op_add, op_sub, op_slt, op_sltu; //加、减、有符号小于置1、无符号小于设置1
     wire op_and, op_nor, op_or, op_xor;//位与、位或非、位或、位异或
     wire op_sll, op_srl, op_sra, op_lui;//立即数逻辑左移、立即数逻辑右移、立即数算术右移、寄存器高半部分置立即数
@@ -189,35 +192,38 @@ module ID(
     assign inst_jr      = op_d[6'b00_0000]&func_d[6'b00_1000];
     assign inst_addu    = op_d[6'b00_0000]&func_d[6'b10_0001];
     assign inst_bne     = op_d[6'b00_0101];
+    assign inst_sll     = op_d[6'b00_0000]&func_d[6'b00_0000];
+    assign inst_or      = op_d[6'b00_0000]&func_d[6'b10_0101];
+    assign inst_lw      = op_d[6'b10_0011];
     //  激活信号
 
 
     // rs to reg1
-    assign sel_alu_src1[0] = inst_ori | inst_addiu |inst_subu |inst_addu;
+    assign sel_alu_src1[0] = inst_ori | inst_addiu |inst_subu |inst_addu|inst_or|inst_lw;
     // pc to reg1
-    assign sel_alu_src1[1] = inst_jal;
+    assign sel_alu_src1[1] = inst_jal ;
     // sa_zero_extend to reg1 偏移量
-    assign sel_alu_src1[2] = 1'b0;
+    assign sel_alu_src1[2] = inst_sll;
     
     // rt to reg2
-    assign sel_alu_src2[0] = inst_subu |inst_addu;
+    assign sel_alu_src2[0] = inst_subu |inst_addu|inst_sll|inst_or;
     // imm_sign_extend to reg2
-    assign sel_alu_src2[1] = inst_lui | inst_addiu;
+    assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_lw;
     // 32'b8 to reg2
     assign sel_alu_src2[2] = inst_jal;
     // imm_zero_extend to reg2
     assign sel_alu_src2[3] = inst_ori;
     //替代rt
 
-    assign op_add = inst_addiu |inst_jal|inst_addu;
+    assign op_add = inst_addiu |inst_jal|inst_addu|inst_lw;
     assign op_sub = inst_subu;
     assign op_slt = 1'b0;
     assign op_sltu = 1'b0;
     assign op_and = 1'b0;
     assign op_nor = 1'b0;
-    assign op_or = inst_ori;
+    assign op_or = inst_ori|inst_or;
     assign op_xor = 1'b0;
-    assign op_sll = 1'b0;
+    assign op_sll = inst_sll;
     assign op_srl = 1'b0;
     assign op_sra = 1'b0;
     assign op_lui = inst_lui;
@@ -229,22 +235,22 @@ module ID(
 
 
     // load and store enable
-    assign data_ram_en = 1'b0;
+    assign data_ram_en = inst_lw;
 
     // write enable
     assign data_ram_wen = 1'b0;
 
 
 
-    // regfile sotre enable
-    assign rf_we = inst_ori | inst_lui | inst_addiu | inst_subu |inst_jal|inst_addu;
+    // regfile store enable
+    assign rf_we = inst_ori | inst_lui | inst_addiu | inst_subu |inst_jal|inst_addu|inst_sll|inst_or|inst_lw;
     //链接和跳转
 
 
     // store in [rd]
-    assign sel_rf_dst[0] = inst_subu|inst_addu;
+    assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or;
     // store in [rt] 
-    assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu;
+    assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu|inst_lw;
     // store in [31]
     assign sel_rf_dst[2] = inst_jal;
 
