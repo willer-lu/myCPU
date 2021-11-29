@@ -256,8 +256,9 @@ module ID(
     // 0 from alu_res ; 1 from ld_res
     assign sel_rf_res = 1'b0; //result  mem阶段使用
        
-    assign uprdata1 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rs))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rs))  ?  mem_rf_wdata : rdata1   );
-	assign uprdata2 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rt))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rt))  ?  mem_rf_wdata : rdata2   );
+    assign uprdata1 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rs))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rs))  ?  mem_rf_wdata : (((wb_rf_we == 1'b1) && (wb_rf_waddr == rs))? wb_rf_wdata: rdata1)   );
+	assign uprdata2 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rt))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rt))  ?  mem_rf_wdata : (((wb_rf_we == 1'b1) && (wb_rf_waddr == rt))? wb_rf_wdata: rdata2)   );
+
 
     //////////////////////////////////////////////////////////////在这一步之前改变rdata
     assign id_to_ex_bus = {
