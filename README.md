@@ -11,4 +11,4 @@ the experiment of Computer System
 增加了wb到id段的旁路，解决了上述错误  
 增加了or sll lw xor指令，对ID.v文件进行了更新  
 其中lw 是定向不能解决的数据相关 需要加气泡解决  
-更新了mem.v ex.v  
+更新了mem.v ex.v 上传了上述文件   
