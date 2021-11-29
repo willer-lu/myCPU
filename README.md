@@ -9,3 +9,4 @@ the experiment of Computer System
 有错误暂时未能解决  
 11.29  
 增加了wb到id段的旁路，解决了上述错误
+增加了or sll指令，对ID.v文件进行了更新
