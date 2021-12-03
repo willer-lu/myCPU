@@ -35,7 +35,8 @@ module ID(
     
     output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,//即ID到EX段的内容
 
-    output wire [`BR_WD-1:0] br_bus    
+    output wire [`BR_WD-1:0] br_bus,
+    input wire is_lw    
     
 );
 
@@ -77,7 +78,23 @@ module ID(
         end
     end
     //输入指令
-    assign inst = inst_sram_rdata;
+    reg[31:0] instreg;
+    reg flag;
+        always @ (posedge clk) begin
+        if (stall[2]==`Stop && stall[3]==`NoStop) begin
+            flag <= 1'b1;
+            instreg <=inst_sram_rdata;
+        end
+        else begin
+            flag <= 1'b0;
+            instreg <=32'b0;
+        end
+    end
+    assign inst = flag?instreg:inst_sram_rdata;
+
+    
+    
+    
     assign {   //使能信号 指令地址
         ce,
         id_pc
@@ -106,7 +123,7 @@ module ID(
     wire [11:0] alu_op;  //不同子类型操作
 
     wire data_ram_en;
-    wire [3:0] data_ram_wen;
+    wire data_ram_wen;
     
     wire rf_we;  //判断指令是否有要写入的目的寄存器
     wire [4:0] rf_waddr;  //指令要写入的目的寄存器的地址
@@ -140,22 +157,15 @@ module ID(
     assign code = inst[25:6];
     assign base = inst[25:21];
     assign offset = inst[15:0];
-    assign sel = inst[2:0];
+    assign sel = inst[2:0];  //特权指令
 
     wire inst_ori, inst_lui, inst_addiu, inst_beq, inst_subu;//已有的指令类型
     wire inst_jal, inst_jr, inst_addu, inst_bne, inst_or ;
-    wire inst_sll, inst_lw, inst_xor;
-    //ori立即数位或 ori rt rs im
-    //lui寄存器高半部分置立即数  lui rt im
-    //addiu加立即数 addiu rt rs im
-    //beq相等转移 beq rs rt offset
-    //subu 将 rs与 rt相减，结果写入 rd  subu rs rt rd sham func
-    //jal 无条件跳转 jal index
-    //jr 无条件跳转。跳转目标为寄存器 rs 中的值 jr rs 10 5 func
-    //addu 将 rs 与 rt 相加，结果写入 rd  addu rs rt rd sham func
-    // rs 不等于 rt 则转移 bne rs rt offset
-    //由立即数 sa 指定移位量，对rt的值进行左移  写入rd中  SLL rd, rt, sa
-    //rs中的值与rt中的值按位逻辑或，结果写入rd中     OR rd, rs, rt
+    wire inst_sll, inst_lw, inst_xor, inst_sw, inst_sltu;
+    wire inst_slt, inst_and, inst_nor,inst_srl,inst_sra;
+    wire inst_andi,inst_add,inst_addi,inst_sub,inst_slti;
+    wire inst_sltiu,inst_xori,inst_j;
+
     wire op_add, op_sub, op_slt, op_sltu; //加、减、有符号小于置1、无符号小于设置1
     wire op_and, op_nor, op_or, op_xor;//位与、位或非、位或、位异或
     wire op_sll, op_srl, op_sra, op_lui;//立即数逻辑左移、立即数逻辑右移、立即数算术右移、寄存器高半部分置立即数
@@ -195,37 +205,57 @@ module ID(
     assign inst_or      = op_d[6'b00_0000]&func_d[6'b10_0101];
     assign inst_lw      = op_d[6'b10_0011];
     assign inst_xor     = op_d[6'b00_0000]&func_d[6'b10_0110];
+    assign inst_sw      = op_d[6'b10_1011];
+    assign inst_sltu    = op_d[6'b00_0000]&func_d[6'b10_1011];
+    assign inst_slt     = op_d[6'b00_0000]&func_d[6'b10_1010];
+    assign inst_and     = op_d[6'b00_0000]&func_d[6'b10_0100];
+    assign inst_nor     = op_d[6'b00_0000]&func_d[6'b10_0111];
+    assign inst_srl     = op_d[6'b00_0000]&func_d[6'b00_0010];
+    assign inst_sra     = op_d[6'b00_0000]&func_d[6'b00_0011];
+    assign inst_andi    = op_d[6'b00_1100];
+    assign inst_add     = op_d[6'b00_0000]&func_d[6'b10_0000];
+    assign inst_addi    = op_d[6'b00_1000];
+    assign inst_sub     = op_d[6'b00_0000]&func_d[6'b10_0010];
+    assign inst_slti    = op_d[6'b00_1010];
+    assign inst_sltiu   = op_d[6'b00_1011];
+    assign inst_xori    = op_d[6'b00_1110];
+    assign inst_j       = op_d[6'b00_0010];
+    
     //  激活信号
 
 
     // rs to reg1
-    assign sel_alu_src1[0] = inst_ori | inst_addiu |inst_subu |inst_addu|inst_or|inst_lw|inst_xor;
+    assign sel_alu_src1[0] = inst_ori | inst_addiu |inst_subu |inst_addu|inst_or|inst_lw
+                             |inst_xor|inst_sw |inst_sltu|inst_slt|inst_and|inst_nor
+                             |inst_andi|inst_add|inst_addi|inst_sub|inst_slti|inst_sltiu
+                             |inst_xori;
     // pc to reg1
     assign sel_alu_src1[1] = inst_jal ;
     // sa_zero_extend to reg1 偏移量
-    assign sel_alu_src1[2] = inst_sll;
+    assign sel_alu_src1[2] = inst_sll|inst_srl|inst_sra;
     
     // rt to reg2
-    assign sel_alu_src2[0] = inst_subu |inst_addu|inst_sll|inst_or|inst_xor;
+    assign sel_alu_src2[0] = inst_subu |inst_addu|inst_sll|inst_or|inst_xor|inst_sltu|inst_slt|
+                             inst_and|inst_nor|inst_srl|inst_sra|inst_add|inst_sub;
     // imm_sign_extend to reg2
-    assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_lw;
+    assign sel_alu_src2[1] = inst_lui | inst_addiu|inst_lw|inst_sw|inst_addi|inst_slti|inst_sltiu;
     // 32'b8 to reg2
     assign sel_alu_src2[2] = inst_jal;
     // imm_zero_extend to reg2
-    assign sel_alu_src2[3] = inst_ori;
+    assign sel_alu_src2[3] = inst_ori|inst_andi|inst_xori;
     //替代rt
 
-    assign op_add = inst_addiu |inst_jal|inst_addu|inst_lw;
-    assign op_sub = inst_subu;
-    assign op_slt = 1'b0;
-    assign op_sltu = 1'b0;
-    assign op_and = 1'b0;
-    assign op_nor = 1'b0;
+    assign op_add = inst_addiu |inst_jal|inst_addu|inst_lw|inst_sw|inst_add|inst_addi;
+    assign op_sub = inst_subu|inst_sub;
+    assign op_slt = inst_slt|inst_slti;
+    assign op_sltu = inst_sltu|inst_sltiu;
+    assign op_and = inst_and|inst_andi;
+    assign op_nor = inst_nor;
     assign op_or = inst_ori|inst_or;
-    assign op_xor = inst_xor;
+    assign op_xor = inst_xor|inst_xori;
     assign op_sll = inst_sll;
-    assign op_srl = 1'b0;
-    assign op_sra = 1'b0;
+    assign op_srl = inst_srl;
+    assign op_sra = inst_sra;
     assign op_lui = inst_lui;
 
     assign alu_op = {op_add, op_sub, op_slt, op_sltu,
@@ -235,22 +265,27 @@ module ID(
 
 
     // load and store enable
-    assign data_ram_en = inst_lw;
+    assign data_ram_en = inst_lw|inst_sw;
 
     // write enable
-    assign data_ram_wen = inst_lw ? 4'b0000 : 4'b1111;
+    assign data_ram_wen = inst_sw;
 
 
 
     // regfile store enable
-    assign rf_we = inst_ori | inst_lui | inst_addiu | inst_subu |inst_jal|inst_addu|inst_sll|inst_or|inst_lw||inst_xor;
+    assign rf_we = inst_ori | inst_lui | inst_addiu | inst_subu |inst_jal|inst_addu
+                   |inst_sll|inst_or|inst_lw||inst_xor|inst_sltu|inst_slt|inst_and
+                   |inst_nor|inst_srl|inst_sra|inst_andi|inst_add|inst_addi|inst_sub
+                   |inst_slti|inst_sltiu|inst_xori;
     //链接和跳转
 
 
     // store in [rd]
-    assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or||inst_xor;
+    assign sel_rf_dst[0] = inst_subu|inst_addu|inst_sll|inst_or||inst_xor|inst_sltu|inst_slt|
+                           inst_and|inst_nor|inst_srl|inst_sra|inst_add|inst_sub;
     // store in [rt] 
-    assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu|inst_lw;
+    assign sel_rf_dst[1] = inst_ori | inst_lui | inst_addiu|inst_lw|inst_sw|inst_andi|inst_addi
+                           |inst_slti|inst_sltiu|inst_xori;
     // store in [31]
     assign sel_rf_dst[2] = inst_jal;
 
@@ -261,20 +296,26 @@ module ID(
 
     // 0 from alu_res ; 1 from ld_res
     assign sel_rf_res = inst_lw; //result  mem阶段使用
+    assign stallreq = (is_lw &&((rs == ex_rf_waddr)||(rt == ex_rf_waddr)));
+
        
-    assign uprdata1 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rs))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rs))  ?  mem_rf_wdata : (((wb_rf_we == 1'b1) && (wb_rf_waddr == rs))? wb_rf_wdata: rdata1)   );
-	assign uprdata2 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rt))  ?  ex_ex_result :(((mem_rf_we == 1'b1) && (mem_rf_waddr == rt))  ?  mem_rf_wdata : (((wb_rf_we == 1'b1) && (wb_rf_waddr == rt))? wb_rf_wdata: rdata2)   );
+    assign uprdata1 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rs))  ?  ex_ex_result :
+                      (((mem_rf_we == 1'b1) && (mem_rf_waddr == rs))  ?  mem_rf_wdata :
+                       (((wb_rf_we == 1'b1) && (wb_rf_waddr == rs))? wb_rf_wdata: rdata1)   );
+	assign uprdata2 = ((ex_rf_we == 1'b1) && (ex_rf_waddr == rt))  ?  ex_ex_result :
+	                  (((mem_rf_we == 1'b1) && (mem_rf_waddr == rt))  ?  mem_rf_wdata : 
+	                   (((wb_rf_we == 1'b1) && (wb_rf_waddr == rt))? wb_rf_wdata: rdata2)   );
 
 
     //////////////////////////////////////////////////////////////在这一步之前改变rdata
     assign id_to_ex_bus = {
-        id_pc,          // 158:127
-        inst,           // 126:95
-        alu_op,         // 94:83
-        sel_alu_src1,   // 82:80
-        sel_alu_src2,   // 79:76
-        data_ram_en,    // 75
-        data_ram_wen,   // 74:71
+        id_pc,          // 155:124
+        inst,           // 123:92
+        alu_op,         // 91:80
+        sel_alu_src1,   // 79:77
+        sel_alu_src2,   // 76:73
+        data_ram_en,    // 72
+        data_ram_wen,   // 71
         rf_we,          // 70
         rf_waddr,       // 69:65
         sel_rf_res,     // 64
@@ -295,8 +336,8 @@ module ID(
 
     assign rs_eq_rt = (uprdata1 == uprdata2);
 
-    assign br_e =  inst_jal |inst_jr |(inst_beq & rs_eq_rt)|(inst_bne & (!rs_eq_rt)) ;
-    assign br_addr =  inst_jal  ?  {pc_plus_4 [31:28],inst[25:0],2'b0}:
+    assign br_e =  inst_j|inst_jal |inst_jr |(inst_beq & rs_eq_rt)|(inst_bne & (!rs_eq_rt)) ;
+    assign br_addr =  (inst_jal|inst_j)  ?  {pc_plus_4 [31:28],inst[25:0],2'b0}:
                       inst_jr ? uprdata1 :
                       (inst_beq|inst_bne) ? (pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b0}) :
                       32'b0;
@@ -309,3 +350,4 @@ module ID(
 
 
 endmodule
+
