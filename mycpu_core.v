@@ -29,7 +29,8 @@ module mycpu_core(
     wire [`DATA_SRAM_WD-1:0] ex_dt_sram_bus;
     wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus;
     wire [`StallBus-1:0] stall;
-
+    wire ex_id_we;
+    wire stallreq_for_load;
     IF u_IF(
     	.clk             (clk             ),
         .rst             (rst             ),
@@ -47,20 +48,23 @@ module mycpu_core(
     	.clk             (clk             ),
         .rst             (rst             ),
         .stall           (stall           ),
-        .stallreq        (stallreq        ),
+        .stallreq        (stallreq_for_load),
         .if_to_id_bus    (if_to_id_bus    ),
         .inst_sram_rdata (inst_sram_rdata ),
         .wb_to_rf_bus    (wb_to_rf_bus    ),
-     //����ִ�н׶�ָ��Ҫд��ļĴ�����Ϣ
-        .ex_rf_we        (ex_to_mem_bus[37]),   
+     //处于执行阶段指令要写入的寄存器信息
+        .ex_rf_we        (ex_id_we            ),   
         .ex_rf_waddr     (ex_to_mem_bus[36:32]),
         .ex_ex_result    (ex_to_mem_bus[31:0]),
-    //���ڷô�׶�ָ��Ҫд��ļĴ�����Ϣ
+    //处于访存阶段指令要写入的寄存器信息
         .mem_rf_we       (mem_to_wb_bus[37]), 
         .mem_rf_waddr    (mem_to_wb_bus[36:32]),
         .mem_rf_wdata    (mem_to_wb_bus[31:0]),
+    //处于写回阶段指令要写入的寄存器信息    
+
         .id_to_ex_bus    (id_to_ex_bus    ),
-        .br_bus          (br_bus          )
+        .br_bus          (br_bus          ),
+        .is_lw           (is_lw           )
     );
 
     EX u_EX(
@@ -72,7 +76,9 @@ module mycpu_core(
         .data_sram_en    (data_sram_en    ),
         .data_sram_wen   (data_sram_wen   ),
         .data_sram_addr  (data_sram_addr  ),
-        .data_sram_wdata (data_sram_wdata )
+        .data_sram_wdata (data_sram_wdata ),
+        .is_lw           (is_lw           ),
+        .ex_id_we        (ex_id_we        )
     );
 
     MEM u_MEM(
@@ -98,7 +104,9 @@ module mycpu_core(
 
     CTRL u_CTRL(
     	.rst   (rst   ),
+    	.stallreq_for_load (stallreq_for_load),
         .stall (stall )
     );
     
 endmodule
+
