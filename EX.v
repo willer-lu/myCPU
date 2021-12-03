@@ -11,8 +11,10 @@ module EX(
 
     output wire data_sram_en,
     output wire [3:0] data_sram_wen,
-    output wire [31:0] data_sram_addr, //ÄÚ´æµØÖ·
-    output wire [31:0] data_sram_wdata //Ğ´µÄÊı¾İÖµ
+    output wire [31:0] data_sram_addr, //å†…å­˜åœ°å€
+    output wire [31:0] data_sram_wdata, //å†™çš„æ•°æ®å€¼
+    output wire is_lw,
+    output wire ex_id_we
 );
 
     reg [`ID_TO_EX_WD-1:0] id_to_ex_bus_r;
@@ -37,30 +39,32 @@ module EX(
     wire [2:0] sel_alu_src1;
     wire [3:0] sel_alu_src2;
     wire data_ram_en;
-    wire [3:0] data_ram_wen;
+    wire data_ram_wen;
     wire rf_we;
-    wire [4:0] rf_waddr;  //Ö¸ÁîÖ´ĞĞĞ´ÈëµÄÄ¿µÄ¼Ä´æÆ÷µØÖ·
+    wire [4:0] rf_waddr;  //æŒ‡ä»¤æ‰§è¡Œå†™å…¥çš„ç›®çš„å¯„å­˜å™¨åœ°å€
     wire sel_rf_res;
     wire [31:0] rf_rdata1, rf_rdata2;
-    reg is_in_delayslot;//ÑÓ³Ù²Û
+    reg is_in_delayslot;//å»¶è¿Ÿæ§½
 
     assign {
-        ex_pc,          // 158:127
-        inst,           // 116:95
-        alu_op,         // 94:83
-        sel_alu_src1,   // 82:80
-        sel_alu_src2,   // 79:76
-        data_ram_en,    // 75
-        data_ram_wen,   // 74:71
+        ex_pc,          // 155:124
+        inst,           // 123:92
+        alu_op,         // 91:80
+        sel_alu_src1,   // 79:77
+        sel_alu_src2,   // 76:73
+        data_ram_en,    // 72
+        data_ram_wen,   // 71
         rf_we,          // 70
         rf_waddr,       // 69:65
         sel_rf_res,     // 64
         rf_rdata1,         // 63:32
         rf_rdata2          // 31:0
     } = id_to_ex_bus_r;
+
     assign data_sram_en = data_ram_en;
-    assign data_sram_wen = data_ram_wen;
- 
+    assign data_sram_wen = data_ram_wen ? 4'b1111: 4'b0000;//æ ¹æ®åœ°å€æ”¹
+    assign is_lw = (inst[31:26] == 6'b100011);
+    assign ex_id_we =(is_lw?1'b0:rf_we);
     
     wire [31:0] imm_sign_extend, imm_zero_extend, sa_zero_extend;
     assign imm_sign_extend = {{16{inst[15]}},inst[15:0]};
@@ -86,12 +90,12 @@ module EX(
 
     assign ex_result = alu_result ;
     assign data_sram_addr = alu_result;
-    assign data_sram_wdata = alu_result;
+    assign data_sram_wdata = rf_rdata2;
 
     assign ex_to_mem_bus = {
         ex_pc,          // 75:44
         data_ram_en,    // 43
-        data_ram_wen,   // 42:39
+        data_sram_wen,   // 42:39
         sel_rf_res,     // 38
         rf_we,          // 37
         rf_waddr,       // 36:32
