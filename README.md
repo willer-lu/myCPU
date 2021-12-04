@@ -17,3 +17,7 @@ the experiment of Computer System
 在这期间加了xor sw sltu slt and nor srl sra andi  
 add addi sub slti sltiu xori j指令  
 通过了point 15  
+12.4  
+添加了sllv srav srlv bgez bgtz blez bltz  
+bgezal bltzal jalr指令  
+通过了point 43  
