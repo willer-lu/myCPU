@@ -14,7 +14,10 @@ module EX(
     output wire [31:0] data_sram_addr, //内存地址
     output wire [31:0] data_sram_wdata, //写的数据值
     output wire is_lw,
-    output wire ex_id_we
+    output wire ex_id_we,
+    output wire stallreq_for_ex,
+    output wire [65:0] ex_hilo
+    
 );
 
     reg [`ID_TO_EX_WD-1:0] id_to_ex_bus_r;
@@ -46,7 +49,14 @@ module EX(
     wire [31:0] rf_rdata1, rf_rdata2;
     reg is_in_delayslot;//延迟槽
 
+    wire inst_div,inst_divu,inst_mult,inst_multu,inst_mthi,inst_mtlo;
     assign {
+        inst_div,
+        inst_divu,
+        inst_mult,
+        inst_multu,
+        inst_mthi,
+        inst_mtlo,
         ex_pc,          // 155:124
         inst,           // 123:92
         alu_op,         // 91:80
@@ -62,7 +72,9 @@ module EX(
     } = id_to_ex_bus_r;
 
     assign data_sram_en = data_ram_en;
+    ///////////
     assign data_sram_wen = data_ram_wen ? 4'b1111: 4'b0000;//根据地址改
+    ///////////
     assign is_lw = (inst[31:26] == 6'b100011);
     assign ex_id_we =(is_lw?1'b0:rf_we);
     
@@ -82,16 +94,17 @@ module EX(
                       sel_alu_src2[3] ? imm_zero_extend : rf_rdata2;
     
     alu u_alu(
-    	.alu_control (alu_op ),
+    	.alu_control (alu_op      ),
         .alu_src1    (alu_src1    ),
         .alu_src2    (alu_src2    ),
         .alu_result  (alu_result  )
     );
 
     assign ex_result = alu_result ;
-    assign data_sram_addr = alu_result;
+    assign data_sram_addr = ex_result;
+    ///////////////
     assign data_sram_wdata = rf_rdata2;
-
+    ///////////////
     assign ex_to_mem_bus = {
         ex_pc,          // 75:44
         data_ram_en,    // 43
@@ -101,6 +114,137 @@ module EX(
         rf_waddr,       // 36:32
         ex_result       // 31:0
     };
-    
-    
+    // MUL part
+    wire [63:0] mul_result;
+    wire mul_signed; // 有符号乘法标记
+    wire [31:0] muldata1;
+    wire [31:0] muldata2;
+    assign mul_signed =inst_mult?1:0;
+    assign muldata1 =(inst_mult|inst_multu)?rf_rdata1:32'b0;
+    assign muldata2 =(inst_mult|inst_multu)?rf_rdata2:32'b0;
+    mul u_mul(
+    	.clk        (clk            ),
+        .resetn     (~rst           ),
+        .mul_signed (mul_signed     ),
+        .ina        (muldata1       ), // 乘法源操作数1
+        .inb        (muldata2       ), // 乘法源操作数2
+        .result     (mul_result     ) // 乘法结果 64bit
+    );
+
+   
+    // DIV part
+    wire [63:0] div_result;
+   // wire inst_div, inst_divu; //inst_div为有符号除 inst_divu无符号
+    wire div_ready_i;
+    reg stallreq_for_div;
+    assign stallreq_for_ex = stallreq_for_div ;
+
+    reg [31:0] div_opdata1_o; //被除数
+    reg [31:0] div_opdata2_o; //除数
+    reg div_start_o;
+    reg signed_div_o; //是否是有符号除法
+
+    div u_div(
+    	.rst          (rst              ),  //复位
+        .clk          (clk              ),  //时钟
+        .signed_div_i (signed_div_o     ),  //是否为有符号除法运算，1位有符号
+        .opdata1_i    (div_opdata1_o    ),  //被除数
+        .opdata2_i    (div_opdata2_o    ),  //除数
+        .start_i      (div_start_o      ),  //是否开始除法运算
+        .annul_i      (1'b0             ),  //是否取消除法运算，1位取消
+        .result_o     (div_result       ),  // 除法结果 64bit
+        .ready_o      (div_ready_i      )   // 除法是否结束
+    );
+
+    always @ (*) begin
+        if (rst) begin
+            stallreq_for_div = `NoStop;
+            div_opdata1_o = `ZeroWord;
+            div_opdata2_o = `ZeroWord;
+            div_start_o = `DivStop;
+            signed_div_o = 1'b0;
+        end
+        else begin
+            stallreq_for_div = `NoStop;
+            div_opdata1_o = `ZeroWord;
+            div_opdata2_o = `ZeroWord;
+            div_start_o = `DivStop;
+            signed_div_o = 1'b0;
+            case ({inst_div,inst_divu})
+                2'b10:begin
+                    if (div_ready_i == `DivResultNotReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStart;
+                        signed_div_o = 1'b1;
+                        stallreq_for_div = `Stop;
+                    end
+                    else if (div_ready_i == `DivResultReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b1;
+                        stallreq_for_div = `NoStop;
+                    end
+                    else begin
+                        div_opdata1_o = `ZeroWord;
+                        div_opdata2_o = `ZeroWord;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                end
+                2'b01:begin
+                    if (div_ready_i == `DivResultNotReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStart;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `Stop;
+                    end
+                    else if (div_ready_i == `DivResultReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                    else begin
+                        div_opdata1_o = `ZeroWord;
+                        div_opdata2_o = `ZeroWord;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                end
+                default:begin
+                end
+            endcase
+        end
+    end
+
+    // mul_result 和 div_result 可以直接使用
+
+
+    wire hiwe,lowe;
+    wire [31:0]hidata;
+    wire [31:0]lodata;
+    assign hiwe =inst_mthi|inst_mult|inst_multu|inst_div|inst_divu;
+    assign lowe =inst_mtlo|inst_mult|inst_multu|inst_div|inst_divu;
+    assign hidata =(inst_div|inst_divu)?div_result[63:32]:
+                   (inst_mult|inst_multu)?mul_result[63:32]:
+                   inst_mthi?rf_rdata1:
+                   32'b0;
+    assign lodata =(inst_div|inst_divu)?div_result[31:0]:
+                   (inst_mult|inst_multu)?mul_result[31:0]:
+                   inst_mtlo?rf_rdata1:
+                   32'b0;
+    assign ex_hilo ={
+        hiwe,
+        lowe,
+        hidata,
+        lodata
+        };
+     
+        
 endmodule
