@@ -25,3 +25,7 @@ bgezal bltzal jalr指令
 添加了乘除法器并完成相关配置   
 添加了div divu mult multu mfhi mfio mthi mtio指令  
 通过了point 58
+12.11  
+添加了lb lbu lh lhu sh sb 指令  
+对所有文件上传并更新  
+通过了point  64
