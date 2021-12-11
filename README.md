@@ -21,7 +21,7 @@ add addi sub slti sltiu xori j指令
 添加了sllv srav srlv bgez bgtz blez bltz  
 bgezal bltzal jalr指令  
 通过了point 43  
-12.10
+12.10  
 添加了乘除法器并完成相关配置   
 添加了div divu mult multu mfhi mfio mthi mtio指令  
 通过了point 58
