@@ -43,6 +43,7 @@ module EX(
     wire [3:0] sel_alu_src2;
     wire data_ram_en;
     wire data_ram_wen;
+    wire [3:0] sl;
     wire rf_we;
     wire [4:0] rf_waddr;  //指令执行写入的目的寄存器地址
     wire sel_rf_res;
@@ -60,8 +61,9 @@ module EX(
         ex_pc,          // 155:124
         inst,           // 123:92
         alu_op,         // 91:80
-        sel_alu_src1,   // 79:77
-        sel_alu_src2,   // 76:73
+        sel_alu_src1,   // 
+        sel_alu_src2,   // 
+        sl,
         data_ram_en,    // 72
         data_ram_wen,   // 71
         rf_we,          // 70
@@ -71,9 +73,7 @@ module EX(
         rf_rdata2          // 31:0
     } = id_to_ex_bus_r;
 
-    assign data_sram_en = data_ram_en;
-    ///////////
-    assign data_sram_wen = data_ram_wen ? 4'b1111: 4'b0000;//根据地址改
+    
     ///////////
     assign is_lw = (inst[31:26] == 6'b100011);
     assign ex_id_we =(is_lw?1'b0:rf_we);
@@ -103,9 +103,28 @@ module EX(
     assign ex_result = alu_result ;
     assign data_sram_addr = ex_result;
     ///////////////
-    assign data_sram_wdata = rf_rdata2;
+    
+    assign data_sram_en = data_ram_en;
+    ///////////
+    assign data_sram_wen =   (sl==4'b0111 && ex_result[1:0] == 2'b00 &&data_ram_wen == 1'b1)? 4'b0001 
+                            :(sl==4'b0111 && ex_result[1:0] == 2'b01 &&data_ram_wen == 1'b1)? 4'b0010
+                            :(sl==4'b0111 && ex_result[1:0] == 2'b10 &&data_ram_wen == 1'b1)? 4'b0100
+                            :(sl==4'b0111 && ex_result[1:0] == 2'b11 &&data_ram_wen == 1'b1)? 4'b1000
+                            :(sl==4'b1000 && ex_result[1:0] == 2'b00 &&data_ram_wen == 1'b1)? 4'b0011
+                            :(sl==4'b1000 && ex_result[1:0]== 2'b10 &&data_ram_wen == 1'b1)? 4'b1100
+                            :(sl==4'b0010&&data_ram_wen == 1'b1)  ? 4'b1111
+                            : 4'b0000; 
+    assign data_sram_wdata =(data_sram_wen==4'b1111) ? rf_rdata2 
+                            :(data_sram_wen==4'b0001) ? {24'b0,rf_rdata2[7:0]}
+                            :(data_sram_wen==4'b0010) ? {16'b0,rf_rdata2[7:0],8'b0}
+                            :(data_sram_wen==4'b0100) ? {8'b0,rf_rdata2[7:0],16'b0}
+                            :(data_sram_wen==4'b1000) ? {rf_rdata2[7:0],24'b0}
+                            :(data_sram_wen==4'b0011) ? {16'b0,rf_rdata2[15:0]}
+                            :(data_sram_wen==4'b1100) ? {rf_rdata2[15:0],16'b0}
+                            :32'b0;
     ///////////////
     assign ex_to_mem_bus = {
+        sl,    //79:76
         ex_pc,          // 75:44
         data_ram_en,    // 43
         data_sram_wen,   // 42:39
