@@ -2,13 +2,12 @@
 module EX(
     input wire clk,
     input wire rst,
-    // input wire flush,
     input wire [`StallBus-1:0] stall,
 
     input wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
 
     output wire [`EX_TO_MEM_WD-1:0] ex_to_mem_bus,
-
+    
     output wire data_sram_en,
     output wire [3:0] data_sram_wen,
     output wire [31:0] data_sram_addr, //内存地址
@@ -17,18 +16,17 @@ module EX(
     output wire ex_id_we,
     output wire stallreq_for_ex,
     output wire [65:0] ex_hilo
-    
 );
 
     reg [`ID_TO_EX_WD-1:0] id_to_ex_bus_r;
-
+ 
+//	assign excepttype_o = {excepttype_i[31:12],ovassert,trapassert,excepttype_i[9:8],8'h00};
+//	assign current_inst_address_o = current_inst_address_i;
     always @ (posedge clk) begin
         if (rst) begin
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
         end
-        // else if (flush) begin
-        //     id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
-        // end
+
         else if (stall[2]==`Stop && stall[3]==`NoStop) begin
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
         end
@@ -99,7 +97,16 @@ module EX(
         .alu_src2    (alu_src2    ),
         .alu_result  (alu_result  )
     );
-
+//    wire[31:0] reg2_i_mux,result_sum;
+//    wire ov_sum,reg1_lt_reg2;
+//    assign reg2_i_mux = (alu_op == 12'b001000000000 ||alu_op == 12'b010000000000) ?
+//                        (~alu_src2+1) :alu_src2;
+//    assign result_sum =alu_src1 + reg2_i_mux;
+//    assign ov_sum = ((!alu_src1[31] && !reg2_i_mux[31]) && result_sum[31]) ||
+//									((alu_src1[31] && reg2_i_mux[31]) && (!result_sum[31]));  
+//    assign ovassert = ((alu_op == 12'b010000000000 &&ov_sum==1'b1) ||alu_op == 12'b100000000000) ?
+//                           1'b1 :1'b0;
+    
     assign ex_result = alu_result ;
     assign data_sram_addr = ex_result;
     ///////////////
