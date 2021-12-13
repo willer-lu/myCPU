@@ -2,7 +2,7 @@
 module ID(
     input wire clk,  // 时钟信号,
     input wire rst,  // 复位信号
-    // input wire flush,
+
     input wire [`StallBus-1:0] stall,
     //stallBus = 6
     output wire stallreq,  //暂停请求
@@ -23,20 +23,21 @@ module ID(
     input wire [4:0] mem_rf_waddr,
     input wire [31:0] mem_rf_wdata,
     
-    
+
     output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,//即ID到EX段的内容
 
     output wire [`BR_WD-1:0] br_bus,
     input wire is_lw,
-    input wire [65:0] ex_hilo 
+    input wire [65:0] ex_hilo
 );
     
+    
     reg [`IF_TO_ID_WD-1:0] if_to_id_bus_r;
+    //reg [`IC_TO_ID_WD-1:0] ic_to_id_bus;
     wire [31:0] inst;  //译码阶段的指令
     wire [31:0] id_pc;   //译码阶段的地址
     wire ce;  //使能线
- 
-    
+
   
   //WB段输入的相关内容
     wire wb_rf_we;
@@ -47,9 +48,9 @@ module ID(
         if (rst) begin
             if_to_id_bus_r <= `IF_TO_ID_WD'b0;
         end
-        // else if (flush) begin
-        //     ic_to_id_bus <= `IC_TO_ID_WD'b0;
-        // end
+//       else if (flush) begin
+//            if_to_id_bus_r <= `IF_TO_ID_WD'b0;
+//        end
         else if (stall[1]==`Stop && stall[2]==`NoStop) begin
             if_to_id_bus_r <= `IF_TO_ID_WD'b0;
         end
@@ -178,7 +179,7 @@ module ID(
     wire inst_bgezal,inst_bltzal,inst_jalr,inst_div,inst_mult;
     wire inst_multu,inst_divu,inst_mfhi,inst_mthi,inst_mflo;
     wire inst_mtlo,inst_lb,inst_lbu,inst_lh,inst_lhu;
-    wire inst_sb,inst_sh;
+    wire inst_sb,inst_sh,inst_syscall,inst_break,inst_eret;
 
     wire op_add, op_sub, op_slt, op_sltu; //加、减、有符号小于置1、无符号小于设置1
     wire op_and, op_nor, op_or, op_xor;//位与、位或非、位或、位异或
@@ -258,6 +259,9 @@ module ID(
     assign inst_lhu     = op_d[6'b10_0101];
     assign inst_sb      = op_d[6'b10_1000];
     assign inst_sh      = op_d[6'b10_1001];
+    assign inst_syscall = op_d[6'b00_0000]&func_d[6'b001_100];
+    assign inst_break   = op_d[6'b00_0000]&func_d[6'b001_101];
+    assign inst_eret    = op_d[6'b01_0000]&func_d[6'b01_1000];
     //  激活信号
     
 
@@ -326,7 +330,8 @@ module ID(
                :inst_sh  ? 4'b1000
                 :4'b0000;
 
-
+    assign excepttype_is_syscall = inst_syscall;
+    assign excepttype_is_eret =inst_eret;
 
     // regfile store enable
     assign rf_we = inst_ori | inst_lui | inst_addiu | inst_subu |inst_jal|inst_addu
