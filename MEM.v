@@ -2,12 +2,9 @@
 module MEM(
     input wire clk,
     input wire rst,
-    // input wire flush,
-    input wire [`StallBus-1:0] stall,
-
+    input wire [`StallBus-1:0] stall,	
     input wire [`EX_TO_MEM_WD-1:0] ex_to_mem_bus,
-    input wire [31:0] data_sram_rdata,
-
+    input wire [31:0] data_sram_rdata,	
     output wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus
 );
 
@@ -17,9 +14,9 @@ module MEM(
         if (rst) begin
             ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
         end
-        // else if (flush) begin
-        //     ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
-        // end
+//        else if (flush) begin
+//            ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
+//        end
         else if (stall[3]==`Stop && stall[4]==`NoStop) begin
             ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
         end
@@ -38,7 +35,7 @@ module MEM(
     wire [31:0] rf_wdata;
     wire [31:0] ex_result;
     wire [31:0] mem_result;
-
+//    assign current_inst_address_o = current_inst_address_i;
     assign {
         sl,
         mem_pc,         // 75:44
