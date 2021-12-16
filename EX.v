@@ -148,28 +148,44 @@ module EX(
     assign mul_signed =inst_mult?1:0;
     assign muldata1 =(inst_mult|inst_multu)?rf_rdata1:32'b0;
     assign muldata2 =(inst_mult|inst_multu)?rf_rdata2:32'b0;
-    mul u_mul(
-    	.clk        (clk            ),
-        .resetn     (~rst           ),
-        .mul_signed (mul_signed     ),
-        .ina        (muldata1       ), // 乘法源操作数1
-        .inb        (muldata2       ), // 乘法源操作数2
-        .result     (mul_result     ) // 乘法结果 64bit
-    );
+//    mul u_mul(
+//    	.clk        (clk            ),
+//        .resetn     (~rst           ),
+//        .mul_signed (mul_signed     ),
+//        .ina        (muldata1       ), // 乘法源操作数1
+//        .inb        (muldata2       ), // 乘法源操作数2
+//        .result     (mul_result     ) // 乘法结果 64bit
+//    );
 
    
     // DIV part
     wire [63:0] div_result;
    // wire inst_div, inst_divu; //inst_div为有符号除 inst_divu无符号
-    wire div_ready_i;
-    reg stallreq_for_div;
-    assign stallreq_for_ex = stallreq_for_div ;
+    wire div_ready_i, mul_ready_i;
+    reg stallreq_for_div, stallreq_for_mul;
+    assign stallreq_for_ex = stallreq_for_div| stallreq_for_mul;
 
     reg [31:0] div_opdata1_o; //被除数
     reg [31:0] div_opdata2_o; //除数
     reg div_start_o;
     reg signed_div_o; //是否是有符号除法
 
+    reg [31:0] mul_opdata1_o; //被乘数
+    reg [31:0] mul_opdata2_o; //乘数
+    reg mul_start_o;
+    reg signed_mul_o; //是否是有符号乘法
+    
+    mymul u_mul(
+    	.clk        (clk            ),
+        .rst        (rst            ),
+        .mul_signed (signed_mul_o   ),
+        .ina        (mul_opdata1_o  ), // 乘法源操作数1
+        .inb        (mul_opdata2_o  ), // 乘法源操作数2
+        .start_i    (mul_start_o    ),
+        .result_o   (mul_result     ), // 乘法结果 64bit
+        .ready_o    (mul_ready_i    )
+    );
+    
     div u_div(
     	.rst          (rst              ),  //复位
         .clk          (clk              ),  //时钟
@@ -248,7 +264,73 @@ module EX(
             endcase
         end
     end
-
+    
+    always @ (*) begin
+        if (rst) begin
+            stallreq_for_mul = `NoStop;
+            mul_opdata1_o = `ZeroWord;
+            mul_opdata2_o = `ZeroWord;
+            mul_start_o = `MulStop;
+            signed_mul_o = 1'b0;
+        end
+        else begin
+            stallreq_for_mul = `NoStop;
+            mul_opdata1_o = `ZeroWord;
+            mul_opdata2_o = `ZeroWord;
+            mul_start_o = `MulStop;
+            signed_mul_o = 1'b0;
+            case ({inst_mult,inst_multu})
+                2'b10:begin
+                    if (mul_ready_i == `MulResultNotReady) begin
+                        mul_opdata1_o = rf_rdata1;
+                        mul_opdata2_o = rf_rdata2;
+                        mul_start_o = `MulStart;
+                        signed_mul_o = 1'b1;
+                        stallreq_for_mul = `Stop;
+                    end
+                    else if (mul_ready_i == `MulResultReady) begin
+                        mul_opdata1_o = rf_rdata1;
+                        mul_opdata2_o = rf_rdata2;
+                        mul_start_o = `MulStop;
+                        signed_mul_o = 1'b1;
+                        stallreq_for_mul = `NoStop;
+                    end
+                    else begin
+                        mul_opdata1_o = `ZeroWord;
+                        mul_opdata2_o = `ZeroWord;
+                        mul_start_o = `MulStop;
+                        signed_mul_o = 1'b0;
+                        stallreq_for_mul = `NoStop;
+                    end
+                end
+                2'b01:begin
+                    if (mul_ready_i == `MulResultNotReady) begin
+                        mul_opdata1_o = rf_rdata1;
+                        mul_opdata2_o = rf_rdata2;
+                        mul_start_o = `MulStart;
+                        signed_mul_o = 1'b0;
+                        stallreq_for_mul = `Stop;
+                    end
+                    else if (mul_ready_i == `MulResultReady) begin
+                        mul_opdata1_o = rf_rdata1;
+                        mul_opdata2_o = rf_rdata2;
+                        mul_start_o = `MulStop;
+                        signed_mul_o = 1'b0;
+                        stallreq_for_mul = `NoStop;
+                    end
+                    else begin
+                        mul_opdata1_o = `ZeroWord;
+                        mul_opdata2_o = `ZeroWord;
+                        mul_start_o = `MulStop;
+                        signed_mul_o = 1'b0;
+                        stallreq_for_mul = `NoStop;
+                    end
+                end
+                default:begin
+                end
+            endcase
+        end
+    end
     // mul_result 和 div_result 可以直接使用
 
 
@@ -274,3 +356,5 @@ module EX(
      
         
 endmodule
+
+
