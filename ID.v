@@ -9,7 +9,7 @@ module ID(
 
     input wire [`IF_TO_ID_WD-1:0] if_to_id_bus, //使能信号与指令地址
  
-    input wire [31:0] inst_sram_rdata, //指令内容
+    input wire [31:0] inst_sram_rdata, //从指令存储器取得的指令内容
 
     input wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus, //WB段输入的内容
     
@@ -258,7 +258,7 @@ module ID(
     assign inst_lh      = op_d[6'b10_0001];
     assign inst_lhu     = op_d[6'b10_0101];
     assign inst_sb      = op_d[6'b10_1000];
-    assign inst_sh      = op_d[6'b10_1001];
+    assign inst_sh      = op_d[6'b10_1001]; 
     assign inst_syscall = op_d[6'b00_0000]&func_d[6'b001_100];
     assign inst_break   = op_d[6'b00_0000]&func_d[6'b001_101];
     assign inst_eret    = op_d[6'b01_0000]&func_d[6'b01_1000];
