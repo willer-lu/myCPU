@@ -26,9 +26,7 @@ module MEM(
     end
 
     wire [31:0] mem_pc;
-    wire [3:0] data_ram_en;
-    wire data_sram_en;
-    wire [3:0] data_ram_wen,sl;
+    wire [3:0] sl;
     wire sel_rf_res;
     wire rf_we;
     wire [4:0] rf_waddr;
@@ -37,10 +35,8 @@ module MEM(
     wire [31:0] mem_result;
 //    assign current_inst_address_o = current_inst_address_i;
     assign {
-        sl,
-        mem_pc,         // 75:44
-        data_sram_en,    // 43
-        data_ram_wen,   // 42:39
+        sl,             //74:71
+        mem_pc,         // 70:39
         sel_rf_res,     // 38
         rf_we,          // 37
         rf_waddr,       // 36:32
