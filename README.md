@@ -28,4 +28,7 @@ bgezal bltzal jalr指令
 12.11  
 添加了lb lbu lh lhu sh sb 指令  
 对所有文件上传并更新  
-通过了point  64
+通过了point  64  
+12.14  
+自己实现了乘法器 并成功使用  
+更新了所有文件
