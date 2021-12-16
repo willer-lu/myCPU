@@ -179,7 +179,7 @@ module ID(
     wire inst_bgezal,inst_bltzal,inst_jalr,inst_div,inst_mult;
     wire inst_multu,inst_divu,inst_mfhi,inst_mthi,inst_mflo;
     wire inst_mtlo,inst_lb,inst_lbu,inst_lh,inst_lhu;
-    wire inst_sb,inst_sh,inst_syscall,inst_break,inst_eret;
+    wire inst_sb,inst_sh;
 
     wire op_add, op_sub, op_slt, op_sltu; //加、减、有符号小于置1、无符号小于设置1
     wire op_and, op_nor, op_or, op_xor;//位与、位或非、位或、位异或
@@ -259,9 +259,6 @@ module ID(
     assign inst_lhu     = op_d[6'b10_0101];
     assign inst_sb      = op_d[6'b10_1000];
     assign inst_sh      = op_d[6'b10_1001]; 
-    assign inst_syscall = op_d[6'b00_0000]&func_d[6'b001_100];
-    assign inst_break   = op_d[6'b00_0000]&func_d[6'b001_101];
-    assign inst_eret    = op_d[6'b01_0000]&func_d[6'b01_1000];
     //  激活信号
     
 
@@ -329,9 +326,6 @@ module ID(
                :inst_sb  ? 4'b0111
                :inst_sh  ? 4'b1000
                 :4'b0000;
-
-    assign excepttype_is_syscall = inst_syscall;
-    assign excepttype_is_eret =inst_eret;
 
     // regfile store enable
     assign rf_we = inst_ori | inst_lui | inst_addiu | inst_subu |inst_jal|inst_addu
