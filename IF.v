@@ -10,7 +10,7 @@ module IF(
     output wire [`IF_TO_ID_WD-1:0] if_to_id_bus, //储存ce_reg, pc_reg
 
     output wire inst_sram_en,    //使能信号输出
-    output wire [3:0] inst_sram_wen,    //可能控制访存用
+    output wire [3:0] inst_sram_wen,    //控制访存用
     output wire [31:0] inst_sram_addr,  //取指阶段取得的指令对应的地址
     output wire [31:0] inst_sram_wdata  //取指阶段取得的指令
 );
@@ -18,7 +18,7 @@ module IF(
     reg ce_reg;  //指令存储器使能信号
     wire [31:0] next_pc;  //nextPC
     wire br_e;            //判断指令存储器是否可用
-    wire [31:0] br_addr;  //指令存储器
+    wire [31:0] br_addr;  
 
     assign {
         br_e,
@@ -53,7 +53,7 @@ module IF(
     
     assign inst_sram_en = ce_reg;
     assign inst_sram_wen = 4'b0;        //初始化
-    assign inst_sram_addr = pc_reg;   //取到的地址即为PC储存的地址
+    assign inst_sram_addr = pc_reg;   //将指令存储的地址和使能信号传递给存储器来取出指令内容
     assign inst_sram_wdata = 32'b0;   //初始化
     assign if_to_id_bus = {
         ce_reg,
