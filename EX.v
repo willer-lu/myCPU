@@ -131,10 +131,8 @@ module EX(
                             :32'b0;
     ///////////////
     assign ex_to_mem_bus = {
-        sl,    //79:76
-        ex_pc,          // 75:44
-        data_ram_en,    // 43
-        data_sram_wen,   // 42:39
+        sl,    
+        ex_pc,          
         sel_rf_res,     // 38
         rf_we,          // 37
         rf_waddr,       // 36:32
