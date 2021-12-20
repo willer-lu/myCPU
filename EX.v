@@ -10,8 +10,8 @@ module EX(
     
     output wire data_sram_en,
     output wire [3:0] data_sram_wen,
-    output wire [31:0] data_sram_addr, //å†…å­˜åœ°å€
-    output wire [31:0] data_sram_wdata, //å†™çš„æ•°æ®å€¼
+    output wire [31:0] data_sram_addr, //ÄÚ´æµØÖ·
+    output wire [31:0] data_sram_wdata, //Ğ´µÄÊı¾İÖµ
     output wire is_lw,
     output wire ex_id_we,
     output wire stallreq_for_ex,
@@ -43,13 +43,15 @@ module EX(
     wire data_ram_wen;
     wire [3:0] sl;
     wire rf_we;
-    wire [4:0] rf_waddr;  //æŒ‡ä»¤æ‰§è¡Œå†™å…¥çš„ç›®çš„å¯„å­˜å™¨åœ°å€
+    wire [4:0] rf_waddr;  //Ö¸ÁîÖ´ĞĞĞ´ÈëµÄÄ¿µÄ¼Ä´æÆ÷µØÖ·
     wire sel_rf_res;
     wire [31:0] rf_rdata1, rf_rdata2;
-    reg is_in_delayslot;//å»¶è¿Ÿæ§½
+    reg is_in_delayslot;//ÑÓ³Ù²Û
 
     wire inst_div,inst_divu,inst_mult,inst_multu,inst_mthi,inst_mtlo;
+    wire is_lsa;
     assign {
+ 
         inst_div,
         inst_divu,
         inst_mult,
@@ -74,22 +76,35 @@ module EX(
     
     ///////////
     assign is_lw = (inst[31:26] == 6'b100011);
+    assign is_lsa = (inst[31:26] == 6'b01_1100&&inst[5:0]==6'b11_0111);
     assign ex_id_we =(is_lw?1'b0:rf_we);
     
     wire [31:0] imm_sign_extend, imm_zero_extend, sa_zero_extend;
+    wire [1:0]sa,sa1;
     assign imm_sign_extend = {{16{inst[15]}},inst[15:0]};
     assign imm_zero_extend = {16'b0, inst[15:0]};
     assign sa_zero_extend = {27'b0,inst[10:6]};
+  
 
     wire [31:0] alu_src1, alu_src2;
     wire [31:0] alu_result, ex_result;
 
     assign alu_src1 = sel_alu_src1[1] ? ex_pc :
-                      sel_alu_src1[2] ? sa_zero_extend : rf_rdata1;
+                      sel_alu_src1[2] ? sa_zero_extend : 
+                      (is_lsa &inst[7:6]==2'b11) ? {rf_rdata1[27:0] ,4'b0}
+                    :(is_lsa & inst[7:6]==2'b10) ? {rf_rdata1[28:0] ,3'b0}
+                    :(is_lsa & inst[7:6]==2'b01) ? {rf_rdata1[29:0] ,2'b0}
+                    :(is_lsa & inst[7:6]==2'b00) ? {rf_rdata1[30:0] ,1'b0}
+                    :rf_rdata1;
+                      
 
     assign alu_src2 = sel_alu_src2[1] ? imm_sign_extend :
                       sel_alu_src2[2] ? 32'd8 :
-                      sel_alu_src2[3] ? imm_zero_extend : rf_rdata2;
+                      sel_alu_src2[3] ? imm_zero_extend :
+         
+                       rf_rdata2
+                      ;
+    
     
     alu u_alu(
     	.alu_control (alu_op      ),
@@ -97,16 +112,7 @@ module EX(
         .alu_src2    (alu_src2    ),
         .alu_result  (alu_result  )
     );
-//    wire[31:0] reg2_i_mux,result_sum;
-//    wire ov_sum,reg1_lt_reg2;
-//    assign reg2_i_mux = (alu_op == 12'b001000000000 ||alu_op == 12'b010000000000) ?
-//                        (~alu_src2+1) :alu_src2;
-//    assign result_sum =alu_src1 + reg2_i_mux;
-//    assign ov_sum = ((!alu_src1[31] && !reg2_i_mux[31]) && result_sum[31]) ||
-//									((alu_src1[31] && reg2_i_mux[31]) && (!result_sum[31]));  
-//    assign ovassert = ((alu_op == 12'b010000000000 &&ov_sum==1'b1) ||alu_op == 12'b100000000000) ?
-//                           1'b1 :1'b0;
-    
+
     assign ex_result = alu_result ;
     assign data_sram_addr = ex_result;
     ///////////////
@@ -140,7 +146,7 @@ module EX(
     };
     // MUL part
     wire [63:0] mul_result;
-    wire mul_signed; // æœ‰ç¬¦å·ä¹˜æ³•æ ‡è®°
+    wire mul_signed; // ÓĞ·ûºÅ³Ë·¨±ê¼Ç
     wire [31:0] muldata1;
     wire [31:0] muldata2;
     assign mul_signed =inst_mult?1:0;
@@ -150,50 +156,50 @@ module EX(
 //    	.clk        (clk            ),
 //        .resetn     (~rst           ),
 //        .mul_signed (mul_signed     ),
-//        .ina        (muldata1       ), // ä¹˜æ³•æºæ“ä½œæ•°1
-//        .inb        (muldata2       ), // ä¹˜æ³•æºæ“ä½œæ•°2
-//        .result     (mul_result     ) // ä¹˜æ³•ç»“æœ 64bit
+//        .ina        (muldata1       ), // ³Ë·¨Ô´²Ù×÷Êı1
+//        .inb        (muldata2       ), // ³Ë·¨Ô´²Ù×÷Êı2
+//        .result     (mul_result     ) // ³Ë·¨½á¹û 64bit
 //    );
 
    
     // DIV part
     wire [63:0] div_result;
-   // wire inst_div, inst_divu; //inst_divä¸ºæœ‰ç¬¦å·é™¤ inst_divuæ— ç¬¦å·
+   // wire inst_div, inst_divu; //inst_divÎªÓĞ·ûºÅ³ı inst_divuÎŞ·ûºÅ
     wire div_ready_i, mul_ready_i;
     reg stallreq_for_div, stallreq_for_mul;
     assign stallreq_for_ex = stallreq_for_div| stallreq_for_mul;
 
-    reg [31:0] div_opdata1_o; //è¢«é™¤æ•°
-    reg [31:0] div_opdata2_o; //é™¤æ•°
+    reg [31:0] div_opdata1_o; //±»³ıÊı
+    reg [31:0] div_opdata2_o; //³ıÊı
     reg div_start_o;
-    reg signed_div_o; //æ˜¯å¦æ˜¯æœ‰ç¬¦å·é™¤æ³•
+    reg signed_div_o; //ÊÇ·ñÊÇÓĞ·ûºÅ³ı·¨
 
-    reg [31:0] mul_opdata1_o; //è¢«ä¹˜æ•°
-    reg [31:0] mul_opdata2_o; //ä¹˜æ•°
+    reg [31:0] mul_opdata1_o; //±»³ËÊı
+    reg [31:0] mul_opdata2_o; //³ËÊı
     reg mul_start_o;
-    reg signed_mul_o; //æ˜¯å¦æ˜¯æœ‰ç¬¦å·ä¹˜æ³•
+    reg signed_mul_o; //ÊÇ·ñÊÇÓĞ·ûºÅ³Ë·¨
     
     mymul u_mul(
     	.clk        (clk            ),
         .rst        (rst            ),
         .mul_signed (signed_mul_o   ),
-        .ina        (mul_opdata1_o  ), // ä¹˜æ³•æºæ“ä½œæ•°1
-        .inb        (mul_opdata2_o  ), // ä¹˜æ³•æºæ“ä½œæ•°2
+        .ina        (mul_opdata1_o  ), // ³Ë·¨Ô´²Ù×÷Êı1
+        .inb        (mul_opdata2_o  ), // ³Ë·¨Ô´²Ù×÷Êı2
         .start_i    (mul_start_o    ),
-        .result_o   (mul_result     ), // ä¹˜æ³•ç»“æœ 64bit
+        .result_o   (mul_result     ), // ³Ë·¨½á¹û 64bit
         .ready_o    (mul_ready_i    )
     );
     
     div u_div(
-    	.rst          (rst              ),  //å¤ä½
-        .clk          (clk              ),  //æ—¶é’Ÿ
-        .signed_div_i (signed_div_o     ),  //æ˜¯å¦ä¸ºæœ‰ç¬¦å·é™¤æ³•è¿ç®—ï¼Œ1ä½æœ‰ç¬¦å·
-        .opdata1_i    (div_opdata1_o    ),  //è¢«é™¤æ•°
-        .opdata2_i    (div_opdata2_o    ),  //é™¤æ•°
-        .start_i      (div_start_o      ),  //æ˜¯å¦å¼€å§‹é™¤æ³•è¿ç®—
-        .annul_i      (1'b0             ),  //æ˜¯å¦å–æ¶ˆé™¤æ³•è¿ç®—ï¼Œ1ä½å–æ¶ˆ
-        .result_o     (div_result       ),  // é™¤æ³•ç»“æœ 64bit
-        .ready_o      (div_ready_i      )   // é™¤æ³•æ˜¯å¦ç»“æŸ
+    	.rst          (rst              ),  //¸´Î»
+        .clk          (clk              ),  //Ê±ÖÓ
+        .signed_div_i (signed_div_o     ),  //ÊÇ·ñÎªÓĞ·ûºÅ³ı·¨ÔËËã£¬1Î»ÓĞ·ûºÅ
+        .opdata1_i    (div_opdata1_o    ),  //±»³ıÊı
+        .opdata2_i    (div_opdata2_o    ),  //³ıÊı
+        .start_i      (div_start_o      ),  //ÊÇ·ñ¿ªÊ¼³ı·¨ÔËËã
+        .annul_i      (1'b0             ),  //ÊÇ·ñÈ¡Ïû³ı·¨ÔËËã£¬1Î»È¡Ïû
+        .result_o     (div_result       ),  // ³ı·¨½á¹û 64bit
+        .ready_o      (div_ready_i      )   // ³ı·¨ÊÇ·ñ½áÊø
     );
 
     always @ (*) begin
@@ -329,7 +335,7 @@ module EX(
             endcase
         end
     end
-    // mul_result å’Œ div_result å¯ä»¥ç›´æ¥ä½¿ç”¨
+    // mul_result ºÍ div_result ¿ÉÒÔÖ±½ÓÊ¹ÓÃ
 
 
     wire hiwe,lowe;
