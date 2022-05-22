@@ -1,41 +1,7 @@
 # myCPU
 东北大学计算机系统实验  
-基于自己动手完成CPU
-11.24  
-对之前完成的数据相关内容进行上传  
-11.25  
-增加了subu指令，对ID.v文件进行了更新  
-11.26  
-增加了jal jr addu bne指令，对ID.v文件进行了更新  
-有错误暂时未能解决  
-11.29  
-增加了wb到id段的旁路，解决了上述错误  
-增加了or sll lw xor指令，对ID.v文件进行了更新  
-其中lw 是定向不能解决的数据相关 需要加气泡解决  
-更新了mem.v ex.v 上传了上述文件  
-12.3  
-解决了lw指令的问题  
-在这期间加了xor sw sltu slt and nor srl sra andi  
-add addi sub slti sltiu xori j指令  
-通过了point 15  
-12.4  
-添加了sllv srav srlv bgez bgtz blez bltz  
-bgezal bltzal jalr指令  
-通过了point 43  
-12.10  
-添加了乘除法器并完成相关配置   
-添加了div divu mult multu mfhi mfio mthi mtio指令  
-通过了point 58  
-12.11  
-添加了lb lbu lh lhu sh sb 指令  
-对所有文件上传并更新  
-通过了point  64  
-12.14  
-自己实现了乘法器 并成功使用  
-更新了所有文件  
-12.19  
-上传了报告  
-12.20  
-最新上传的ID与EX为加指令测试后的ID与EX  
-注：贡献率不代表工作量 有组员电脑环境不行 在本机上调试并直接上传  
-工作量以报告为准
+基于 雷思磊《自己动手完成CPU》  
+感谢于亚新老师与倪仁涛助教以及组员  
+本实验内容可参考实验报告  
+（最新上传的ID与EX为加指令测试后的ID与EX）  
+
