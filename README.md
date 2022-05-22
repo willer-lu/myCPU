@@ -1,5 +1,6 @@
 # myCPU
-the experiment of Computer System  
+东北大学计算机系统实验  
+基于自己动手完成CPU
 11.24  
 对之前完成的数据相关内容进行上传  
 11.25  
@@ -24,7 +25,7 @@ bgezal bltzal jalr指令
 12.10  
 添加了乘除法器并完成相关配置   
 添加了div divu mult multu mfhi mfio mthi mtio指令  
-通过了point 58
+通过了point 58  
 12.11  
 添加了lb lbu lh lhu sh sb 指令  
 对所有文件上传并更新  
